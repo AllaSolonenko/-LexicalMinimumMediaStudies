@@ -16,12 +16,16 @@ firebase.analytics();
 
 let leftlist = document.getElementById('leftlist');
 let otherDescription = document.getElementById('otherDescription');
+let about = document.querySelector('#about div');
 let termins = [];
 
 
 function getData(event, type = 'LexicalMin') {
     var dbRef = firebase.database().ref(`1YQG7H2FTltWuQoEl_wXnhCHF0LCShGUrhpbtEtgF-qc/${type}`);
     dbRef.on('value', snap => { render(snap.val()); renderTermin(0) });
+    const dbAbout = firebase.database().ref(`1YQG7H2FTltWuQoEl_wXnhCHF0LCShGUrhpbtEtgF-qc/about`);
+    dbAbout.on('value', snap => { about.innerHTML = snap.val(); console.log('qwery', snap.val()) });
+
 }
 
 function render(data) {
@@ -74,7 +78,7 @@ function checkOtherDescription(id) {
     while (termins[++id].termin == '') {
         let termin = termins[id];
 
-        otherDescription.innerHTML = termin.etymology != '' ? `<div class="block">
+        otherDescription.innerHTML += termin.etymology != '' ? `<div class="block">
                     <h2 class="translateheader" tabindex="0">Етимологія терміна</h2>
                     <hr class="hrline">
                     <p>${addAbbr(termin.etymology)}</p>
@@ -113,7 +117,7 @@ function checkOtherDescription(id) {
     }
 }
 function addAbbr(description) {
-    let abbrev = ['англ.', 'рос.', 'фр.', 'див. також', 'див.', 'лат.', 'син.'];
+    let abbrev = ['англ.', 'рос.', 'фр.', 'див. також', 'див.', 'лат.', 'син.', 'пол.', 'нім.'];
 
     for (var k = 0; k < abbrev.length; k++) {
         description = description.replaceAll(abbrev[k], `<span class="lightblue">${abbrev[k]}</span>`);
@@ -132,7 +136,7 @@ function addSrc(termin) {
     }
 }
 
-function checkOtherSrc(termin){
+function checkOtherSrc(termin) {
     // const linkPresent = document.querySelector('a[title="Презентація"]');
     // const linkVideo = document.querySelector('a[title="Відеоілюстрація"]');
 
@@ -144,21 +148,150 @@ function checkOtherSrc(termin){
     //     linkPresent.firstElementChild.classList.add('noactive');
     // }
 
-    setOtherSrc(document.querySelector('a[title="Презентація"]'), termin.presentation);
+    if (isOneLink(termin.presentation)) setOtherSrc(document.querySelector('a[title="Презентація"]'), termin.presentation);
+    else setList(document.querySelector('a[title="Презентація"]'), termin.presentation);
     setOtherSrc(document.querySelector('a[title="Відеоілюстрація"]'), termin.video);
     setOtherSrc(document.querySelector('a[title="Наукова праця"]'), termin.article);
+    setList(document.querySelector('a[title="Навчальна дисципліна"]'), termin.discipline);
 }
 
-function setOtherSrc(element, link){
-    if(link){
+function isOneLink(text) {
+    return text.length === 0 || text.trim().indexOf('http') === 0;
+}
+
+function setOtherSrc(element, link) {
+    if (link) {
         element.setAttribute('href', link);
+        element.removeAttribute('data-toggle');
         element.firstElementChild.classList.remove('noactive');
     } else {
         element.removeAttribute('href');
+        element.setAttribute('data-toggle', "dropdown");
         element.firstElementChild.classList.add('noactive');
     }
 }
 
+function setList(element, text) {
+    if (text) {
+        console.log('setList', text);
+        console.log('newList', parseListOfDiscipline(text));
+        element.setAttribute('data-toggle', "dropdown");
+        createListLink(element.nextElementSibling, parseListOfDiscipline(text));
+        element.firstElementChild.classList.remove('noactive');
+    } else {
+        element.nextElementSibling.innerHTML = "";
+        element.nextElementSibling.classList.remove('dropdown-menu');
+        element.firstElementChild.classList.add('noactive');
+        element.removeAttribute('data-toggle');
+    }
+}
 
-document.addEventListener('DOMContentLoaded', () => getData());
+function parseListOfDiscipline(text = '') {
+    let list = [];
+    list = text.split(/,\s*$/gm).map(item => item.split(/-\s+(?=http)/gmi).map(e => e.trim()));
+    return list;
+}
 
+function createListLink(element, list) {
+    element.innerHTML = ""
+    if (list === undefined || !Array.isArray(list) || !Array.isArray(list[0])) {
+        return;
+    }
+    element.classList.add('dropdown-menu');
+    element.innerHTML = list.map(item => `<a class="dropdown-item" href="${item[1]}" target="_blank">${item[0]}</a>`).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => { getData(); getTeleglossary() });
+
+function getTeleglossary(event, type = 'teleglossary') {
+    var dbRef = firebase.database().ref(`1YQG7H2FTltWuQoEl_wXnhCHF0LCShGUrhpbtEtgF-qc/${type}`);
+    dbRef.on('value', snap => { renderTeleglossary(snap.val()) });
+}
+
+let list = document.getElementById("list");
+
+function renderTeleglossary(data) {
+    list.innerHTML = "";
+    list.insertAdjacentHTML("beforeend", data.map(item => `<li class="${getFirstLetter(item.termin)} list-group-item list-group-item-action"><a 
+    href="${item?.link}" type="video">${item.termin}</a></li>`).join(""))
+}
+
+function getFirstLetter(letter) {
+    letter = letter.toUpperCase();
+    letter = letter.replace(/[^A-ZА-ЯЇІЄҐ]/i, "");
+    letter = letter[0];
+    const LettersMap = {
+        A: 'А',
+        B: 'Б',
+        C: 'Ц',
+        D: 'Д',
+        E: 'Е',
+        F: 'Ф',
+        G: 'Г',
+        H: 'Х',
+        I: 'І',
+        J: 'Й',
+        K: 'К',
+        L: 'Л',
+        M: 'М',
+        N: 'Н',
+        O: 'О',
+        P: 'П',
+        Q: 'К',
+        R: 'Р',
+        S: 'С',
+        T: 'Т',
+        U: 'У',
+        V: 'В',
+        W: 'В',
+        X: 'К',
+        Y: 'Й',
+        Z: 'З',
+    }
+    return LettersMap[letter] ? LettersMap[letter] : letter;
+}
+
+
+/**
+ * Створення словника медійних термінів
+ */
+
+document.querySelector('[data-target="#dictionaries"]').addEventListener('click', getDictionaries);
+document.querySelector('#dictionaries ul:nth-of-type(1)').addEventListener('click', filterDictionaries);
+
+let data = [];
+
+function getDictionaries(event, type = 'dictionaries') {
+    const targetList = document.querySelector(`#${type} ul:nth-of-type(2)`)
+    var dbRef = firebase.database().ref(`1YQG7H2FTltWuQoEl_wXnhCHF0LCShGUrhpbtEtgF-qc/${type}`);
+    dbRef.on('value', snap => { renderDictionaries(clearEmptyData(snap.val()), targetList) });
+}
+
+function clearEmptyData(inputData) {
+    data = inputData.filter((item) => item.termin.trim() !== '');
+    return data;
+}
+
+function renderDictionaries(data, element) {
+    element.innerHTML = "";
+    element.insertAdjacentHTML("beforeend", data.map(item => `<li class="list-group-item list-group-item-action"><a 
+    href="${item?.link.trim()}">${item.termin.trim()}</a></li>`).join(""));
+}
+
+function filterDictionaries(event) {
+    const letter = event.target.dataset.letter;
+    const targetList = document.querySelector(`#dictionaries ul:nth-of-type(2)`);
+    if (!letter) return;
+    const activeLetter = document.querySelectorAll('.active');
+    activeLetter.forEach(element => element.classList.remove('active'));
+    event.target.classList.add('active');
+    if (letter === 'all') return renderDictionaries(data, targetList);
+    filteredData = data.filter(item => item.termin.trim()[0].toUpperCase() === letter);
+    renderDictionaries(filteredData, targetList);
+}
+
+
+
+/**
+ * 
+ */
